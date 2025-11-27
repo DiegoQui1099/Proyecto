@@ -1,13 +1,9 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash
-import os 
-import model.models as db
+import os
+import models as db
 
 
-template_dir = os.path.dirname(os.path. abspath(os.path.dirname(__file__)))
-template_dir = os.path. join(template_dir, 'src', 'templates')
-
-
-app = Flask(__name__, template_folder= template_dir)
+app = Flask(__name__)
 app.secret_key = 'jeje'
 
 @app.route('/')
@@ -96,7 +92,7 @@ def solicitudE():
         # Obtener el idUsuario del usuario actualmente autenticado
         if 'user_id' in session:
             id_usuario = session['user_id']
- 
+
             # Asegúrate de que el usuario tenga el rol adecuado para hacer la solicitud
             user = db.find_user_by_id(id_usuario)
             if user and user['idRol'] == 1:  # idRol 1 corresponde al rol de empleado
@@ -124,22 +120,22 @@ def consulta():
     if 'user_id' not in session:
         flash('Inicia sesión para ver tus solicitudes', 'warning')
         return redirect(url_for('iniciosesion'))
-    
+
     # Obtener el idEmpleado del empleado actualmente autenticado
     user_id = session['user_id']
     id_empleado = db.get_id_empleado_by_user_id(user_id)
-    
+
     if id_empleado is None:
         flash('Error al obtener el empleado', 'danger')
         return redirect(url_for('index_emp'))
-    
+
     # Obtener las solicitudes del empleado desde la base de datos usando id_empleado
     consultas = db.get_solicitudes_del_empleado(id_empleado)
-    
+
     if consultas is None:
         flash('Error al obtener las solicitudes del empleado', 'danger')
         consultas = []
-    
+
     return render_template('empleados/consulta.html', consultas=consultas)
 
 #--- cliente -----#
@@ -203,6 +199,7 @@ def rec_contraseña():
             flash('Correo no encontrado.', 'danger')
     return render_template('rec_contraseña.html')
 
+
 @app.route('/change_password', methods=['POST'])
 def change_password():
     correo = request.form['email']
@@ -246,22 +243,22 @@ def formulario():
         desc_solicitud = request.form['desc_solicitud']
         id_proyecto = request.form['id_proyecto']
 
-        # Obtener el idUsuario del usuario actualmente autenticado
+        # Verificar si el usuario está autenticado
         if 'user_id' in session:
             id_usuario = session['user_id']
- 
-            # Asegúrate de que el usuario tenga el rol adecuado para hacer la solicitud
+
+            # Obtener información del usuario
             user = db.find_user_by_id(id_usuario)
-            if user and user['idRol'] == 2:  # idRol 2 corresponde al rol de cliente
+            if user and user['idRol'] == 2:  # Rol 2 corresponde a cliente
+                # Intentar insertar la solicitud
                 if db.insert_solicitud(desc_solicitud, id_usuario, id_proyecto):
                     flash('Solicitud enviada exitosamente!', 'success')
                     return redirect(url_for('solicitud_exito'))
                 else:
-                    flash('Error al enviar la solicitud.', 'danger')
-                    return redirect(url_for('formulario'))
+                    flash('Error al enviar la solicitud. Inténtalo nuevamente más tarde.', 'danger')
+                    app.logger.error('Error al insertar solicitud para usuario %s y proyecto %s', id_usuario, id_proyecto)
             else:
                 flash('No tienes permisos para realizar esta acción.', 'danger')
-                return redirect(url_for('formulario'))
         else:
             flash('Debes iniciar sesión para realizar una solicitud.', 'danger')
             return redirect(url_for('iniciosesion'))
@@ -278,22 +275,22 @@ def solicitud():
     if 'user_id' not in session:
         flash('Inicia sesión para ver tus solicitudes', 'warning')
         return redirect(url_for('iniciosesion'))
-    
+
     # Obtener el idCliente del cliente actualmente autenticado
     user_id = session['user_id']
     id_cliente = db.get_id_cliente_by_user_id(user_id)  # Esta función debe obtener el idCliente asociado con el user_id
-    
+
     if id_cliente is None:
         flash('Error al obtener el cliente', 'danger')
         return redirect(url_for('index_cl'))  # Redirigir a otra página o manejar el error según tu flujo
-    
+
     # Obtener las solicitudes del cliente desde la base de datos usando id_cliente
     solicitudes = db.get_solicitudes_del_cliente(id_cliente)
-    
+
     if solicitudes is None:
         flash('Error al obtener las solicitudes del cliente', 'danger')
         solicitudes = []
-    
+
     return render_template('clientes/solicitud.html', solicitudes=solicitudes)
 
 @app.route('/contratosC')
@@ -308,20 +305,33 @@ def contratos():
 
     return render_template('clientes/contratos.html', contratos=contratos)
 
+@app.route('/contratosE')
+def contratosE():
+    if 'user_id' not in session:
+        return redirect(url_for('iniciosesion'))
+
+    user_id = session['user_id']
+
+    # Obtener la información de los contratos desde la base de datos
+    contratos = get_contratos_empleados(user_id)
+
+    return render_template('empleados/contratosE.html', contratos=contratos)
+
+
 @app.route('/edit_solicitudC/<string:id>', methods=['POST'])
 def edit_solicitudC(id):
     if request.method == 'POST':
         Estado = request.form['estado']
-        
+
         if Estado:
             cursor = db.database.cursor()
-            sql = "UPDATE solicitudesP SET Estado = %s WHERE idSolicitud = %s"
+            sql = "UPDATE solicitudesp SET Estado = %s WHERE idSolicitud = %s"
             data = (Estado, id)
             cursor.execute(sql, data)
             db.database.commit()
             cursor.close()
             return redirect(url_for('solicitudes'))
-    
+
     # Handle the case where not all parameters were provided or any other issue
     flash('Error updating solicitud. Please check your input.')
     return redirect(url_for('solicitudes'))
@@ -332,11 +342,11 @@ def edit_solicitudC(id):
 def solicitudes():
     cursor = db.database.cursor(dictionary=True)
     cursor.execute("""
-        SELECT 
+        SELECT
             s.idSolicitud, s.desc_solicitud, s.Estado,
             cl.nombreCliente AS nom_cliente,
             p.nomProyecto As nom_proyecto
-        FROM solicitudesP s
+        FROM solicitudesp s
         JOIN clientes cl ON s.idCliente = cl.idCliente
         JOIN proyectos p ON s.idProyecto = p.idProyecto
     """)
@@ -358,11 +368,11 @@ def solicitudes():
 def solicitudesEmpleados():
     cursor = db.database.cursor(dictionary=True)
     cursor.execute("""
-        SELECT 
+        SELECT
             se.idSolicitud, se.tipoSolicitud, se.motivo, se.fechaSolicitud, se.estado, se.fechaRespuesta, se.respuesta,
             e.nomEmpleado AS nom_empleado,
             e.documento AS documento
-        FROM solicitudesE se
+        FROM solicitudese se
         JOIN empleados e ON se.idEmpleado = e.idEmpleado
     """)
     solicitudE = cursor.fetchall()
@@ -383,13 +393,13 @@ def edit_solicitud(id):
 
         if estado and fechaRespuesta and respuesta:
             cursor = db.database.cursor()
-            sql = "UPDATE solicitudesE SET estado = %s, fechaRespuesta = %s, respuesta = %s WHERE idSolicitud = %s"
+            sql = "UPDATE solicitudese SET estado = %s, fechaRespuesta = %s, respuesta = %s WHERE idSolicitud = %s"
             data = (estado, fechaRespuesta, respuesta, id)
             cursor.execute(sql, data)
             db.database.commit()
             cursor.close()
             return redirect(url_for('solicitudesEmpleados'))
-    
+
     # Handle the case where not all parameters were provided or any other issue
     flash('Error updating solicitud. Please check your input.')
     return redirect(url_for('solicitudesEmpleados'))
@@ -400,11 +410,11 @@ def edit_solicitud(id):
 def contratoProyecto():
     cursor = db.database.cursor(dictionary=True)
     cursor.execute("""
-        SELECT 
+        SELECT
             cp.idContratoP, cp.fechaI, cp.fechaF, cp.precio,
-            a.nomAdmin AS nombre_admin, 
-            cl.nombreCliente AS nom_cliente, 
-            cd.nomCiudad AS nom_ciudad, 
+            a.nomAdmin AS nombre_admin,
+            cl.nombreCliente AS nom_cliente,
+            cd.nomCiudad AS nom_ciudad,
             e.nomEmpleado AS nombre_empleado,
             pr.nomProyecto AS nom_proyecto
         FROM contproyecto cp
@@ -433,7 +443,7 @@ def contratoProyecto():
     proyectos = cursor.fetchall()
 
     cursor.close()
-    return render_template('contratoProyecto.html', data=contratoP, empleados=empleados, admin=admin, ciudades=ciudades, clientes=clientes, proyectos=proyectos)
+    return render_template('ContratoProyecto.html', data=contratoP, empleados=empleados, admin=admin, ciudades=ciudades, clientes=clientes, proyectos=proyectos)
 
 @app.route('/add_contractP', methods=['POST'])
 def add_contractP():
@@ -450,11 +460,11 @@ def add_contractP():
         cursor = db.database.cursor()
     sql = """
         INSERT INTO contproyecto (fechaI, fechaF, precio, idAdmin, idEmpleado, idCliente, idCiudad, idProyecto)
-        VALUES (%s, %s, %s, 
-        (SELECT idAdmin FROM admin WHERE nomAdmin = %s), 
-        (SELECT idEmpleado FROM empleados WHERE nomEmpleado = %s), 
-        (SELECT idCliente FROM clientes WHERE nombreCliente = %s), 
-        (SELECT idCiudad FROM ciudad WHERE nomCiudad = %s), 
+        VALUES (%s, %s, %s,
+        (SELECT idAdmin FROM admin WHERE nomAdmin = %s),
+        (SELECT idEmpleado FROM empleados WHERE nomEmpleado = %s),
+        (SELECT idCliente FROM clientes WHERE nombreCliente = %s),
+        (SELECT idCiudad FROM ciudad WHERE nomCiudad = %s),
         (SELECT idProyecto FROM proyectos WHERE nomProyecto = %s))
     """
     data = (fechaI, fechaF, precio, nomAdmin, nomEmpleado, nombreCliente, nomCiudad, nomProyecto)
@@ -486,7 +496,7 @@ def edit_contractP(id):
         cursor.close()
     return redirect(url_for('contratoProyecto'))
 
-    
+
 @app.route('/delete_contractP/<string:id>', methods=['GET'])
 def delete_contractP(id):
     cursor = db.database.cursor()
@@ -527,7 +537,7 @@ def iniciosesion():
                         return redirect(url_for('dashproyectos'))
                     elif nombre_usuario == 'MairaRechtp1@gmail.com':
                         return redirect(url_for('dashboard'))
-                    elif user['idRol'] == 1:  
+                    elif user['idRol'] == 1:
                         return redirect(url_for('index_emp'))
                     else:
                         return redirect(url_for('index_cl'))
@@ -551,7 +561,7 @@ def registro():
         contraseña = request.form['password']  # Hashear la contraseña
         nombre_usuario = request.form['username']
         id_rol = request.form['id_rol']  # Aquí obtenemos el ID del rol seleccionado en el formulario
-        
+
         # Insertar los datos en la tabla de usuarios
         cursor = db.database.cursor()
         sql = "INSERT INTO usuarios (correo, contraseña, nombre_usuario, idRol) VALUES (%s, %s, %s, %s)"
@@ -568,10 +578,10 @@ def registro():
         cursor.execute("SELECT idRol, nombre_rol FROM roles")
         roles = cursor.fetchall()
         cursor.close()
-        
+
         # Renderizar el formulario de registro con la lista de roles
         return render_template('registro.html', roles=roles)
-    
+
 @app.route('/map')
 def MapaSitio():
     return render_template('MapaSitio.html')
@@ -675,26 +685,26 @@ def add_certificate():
 
     if estado_cert and num_certificado and nomEmpleado:
         cursor = db.database.cursor()
-        
+
         # Primero, obtenemos el idEmpleado de la tabla empleados
         sql_select = "SELECT idEmpleado FROM empleados WHERE nomEmpleado = %s"
         cursor.execute(sql_select, (nomEmpleado,))
         result = cursor.fetchone()
-        
+
         if result:
             idEmpleado = result[0]
-            
+
             # Luego, insertamos en la tabla certificados
             sql_insert = "INSERT INTO certificados (estado_cert, num_certificado, idEmpleado) VALUES (%s, %s, %s)"
             data = (estado_cert, num_certificado, idEmpleado)
             cursor.execute(sql_insert, data)
-            
+
             db.database.commit()
             cursor.close()
         else:
             # Manejo del caso cuando no se encuentra el empleado
             print("Empleado no encontrado")
-    
+
     return redirect(url_for('certificados'))
 
 @app.route('/edit_certificate/<string:id>', methods=['POST'])
@@ -705,28 +715,28 @@ def edit_certificate(id):
 
     if estado_cert and num_certificado and nomEmpleado:
         cursor = db.database.cursor()
-        
+
         # Primero, obtenemos el idEmpleado de la tabla empleados
         sql_select = "SELECT idEmpleado FROM empleados WHERE nomEmpleado = %s"
         cursor.execute(sql_select, (nomEmpleado,))
         result = cursor.fetchone()
-        
+
         if result:
             idEmpleado = result[0]
-            
+
             # Luego, actualizamos la tabla certificados
             sql_update = "UPDATE certificados SET estado_cert = %s, num_certificado = %s, idEmpleado = %s WHERE idCertificados = %s"
             data = (estado_cert, num_certificado, idEmpleado, id)
             cursor.execute(sql_update, data)
-            
+
             db.database.commit()
             cursor.close()
         else:
             # Manejo del caso cuando no se encuentra el empleado
             print("Empleado no encontrado")
-        
+
     return redirect(url_for('certificados'))
-    
+
 @app.route('/delete_certificate/<string:id>', methods=['GET'])
 def delete_certificate(id):
     cursor = db.database.cursor()
@@ -778,26 +788,26 @@ def add_permission():
 
     if duracion and numPermiso and fechaInicio and fechaFin and nomEmpleado:
         cursor = db.database.cursor()
-        
+
         # Primero, obtenemos el idEmpleado de la tabla empleados
         sql_select = "SELECT idEmpleado FROM empleados WHERE nomEmpleado = %s"
         cursor.execute(sql_select, (nomEmpleado,))
         result = cursor.fetchone()
-        
+
         if result:
             idEmpleado = result[0]
-            
+
             # Luego, insertamos en la tabla permisos
             sql_insert = "INSERT INTO permisos (duracion, numPermiso, fechaInicio, fechaFin, idEmpleado) VALUES (%s, %s, %s)"
             data = (duracion, numPermiso, fechaInicio, fechaFin, idEmpleado)
             cursor.execute(sql_insert, data)
-            
+
             db.database.commit()
             cursor.close()
         else:
             # Manejo del caso cuando no se encuentra el empleado
             print("Empleado no encontrado")
-    
+
     return redirect(url_for('permisos'))
 
 @app.route('/edit_permission/<string:id>', methods=['POST'])
@@ -810,26 +820,26 @@ def edit_permission(id):
 
     if duracion and numPermiso and fechaInicio and fechaFin and nomEmpleado:
         cursor = db.database.cursor()
-        
+
         # Primero, obtenemos el idEmpleado de la tabla empleados
         sql_select = "SELECT idEmpleado FROM empleados WHERE nomEmpleado = %s"
         cursor.execute(sql_select, (nomEmpleado,))
         result = cursor.fetchone()
-        
+
         if result:
             idEmpleado = result[0]
-            
+
             # Luego, actualizamos la tabla permisos
             sql_update = "UPDATE permisos SET duracion = %s, numPermiso = %s, fechaInicio = %s, fechaFin = %s, idEmpleado = %s WHERE idPermisos = %s"
             data = (duracion, numPermiso, fechaInicio, fechaFin, idEmpleado)
             cursor.execute(sql_update, data)
-            
+
             db.database.commit()
             cursor.close()
         else:
             # Manejo del caso cuando no se encuentra el empleado
             print("Empleado no encontrado")
-        
+
     return redirect(url_for('permisos'))
 
 @app.route('/delete_permission/<string:id>', methods=['GET'])
@@ -865,26 +875,26 @@ def add_incap():
 
     if fecha_inicio and fecha_fin and numIncapacidad and duracion and nomEmpleado:
         cursor = db.database.cursor()
-        
+
         # Primero, obtenemos el idEmpleado de la tabla empleados
         sql_select = "SELECT idEmpleado FROM empleados WHERE nomEmpleado = %s"
         cursor.execute(sql_select, (nomEmpleado,))
         result = cursor.fetchone()
-        
+
         if result:
             idEmpleado = result[0]
-            
+
             # Luego, insertamos en la tabla incapacidad
             sql_insert = "INSERT INTO incapacidades (fecha_inicio, fecha_fin, numIncapacidad, duracion, idEmpleado) VALUES (%s, %s, %s, %s, %s)"
             data = (fecha_inicio, fecha_fin, numIncapacidad, duracion, idEmpleado)
             cursor.execute(sql_insert, data)
-            
+
             db.database.commit()
             cursor.close()
         else:
             # Manejo del caso cuando no se encuentra el empleado
             print("Empleado no encontrado")
-    
+
     return redirect(url_for('incapacidades'))
 
 @app.route('/edit_incap/<string:id>', methods=['POST'])
@@ -898,26 +908,26 @@ def edit_incap(id):
 
     if fecha_inicio and fecha_fin and numIncapacidad and duracion and nomEmpleado:
         cursor = db.database.cursor()
-        
+
         # Primero, obtenemos el idEmpleado de la tabla empleados
         sql_select = "SELECT idEmpleado FROM empleados WHERE nomEmpleado = %s"
         cursor.execute(sql_select, (nomEmpleado,))
         result = cursor.fetchone()
-        
+
         if result:
             idEmpleado = result[0]
-            
+
             # Luego, actualizamos la tabla incapacidad
             sql_update = "UPDATE incapacidades SET fecha_inicio = %s, fecha_fin = %s, numIncapacidad = %s, duracion = %s, idEmpleado = %s WHERE idIncapacidad = %s"
             data = (fecha_inicio, fecha_fin, numIncapacidad, duracion, idEmpleado, id)
             cursor.execute(sql_update, data)
-            
+
             db.database.commit()
             cursor.close()
         else:
             # Manejo del caso cuando no se encuentra el empleado
             print("Empleado no encontrado")
-        
+
     return redirect(url_for('incapacidades'))
 
 @app.route('/delete_incap/<string:id>', methods=['GET'])
@@ -932,4 +942,4 @@ def delete_incap(id):
 
 
 if __name__ == '__main__':
-    app.run(debug=True, port=4000)
+    app.run()

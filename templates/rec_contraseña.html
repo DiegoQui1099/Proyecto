@@ -5,6 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Recuperación de Contraseña</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/rec_contraseña.css') }}">
+    <script>
+        function validatePassword() {
+            const password = document.getElementById('newPassword').value;
+            const passwordPattern = /^(?=.*[0-9].*[0-9])(?=.*[!@#$%^&*])(?=.*[a-zA-Z]).{8,}$/;
+
+            if (!passwordPattern.test(password)) {
+                alert('La contraseña debe tener al menos 8 caracteres, incluyendo 2 números y un carácter especial.');
+                return false;
+            }
+            return true;
+        }
+    </script>
 </head>
 <body>
     <div class="container">
@@ -21,7 +33,7 @@
 
         <!-- Formulario de nueva contraseña -->
         {% if correo %}
-        <form id="passwordForm" action="{{ url_for('change_password') }}" method="post">
+        <form id="passwordForm" action="{{ url_for('change_password') }}" method="post" onsubmit="return validatePassword()">
             <label for="newPassword">Nueva Contraseña:</label>
             <input type="password" id="newPassword" name="newPassword" required>
             <button type="submit">Cambiar Contraseña</button>

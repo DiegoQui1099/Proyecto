@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <link rel="shortcut icon" href="{{ url_for('static', filename='images/Logo.jpeg') }}" type="image/x-icon">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/estilo.css') }}">
+    <title>Contratos de Empleado</title>
+    <style>
+        .container-contratos {
+            padding: 20px;
+            margin: 20px auto;
+            max-inline-size: 800px;
+        }
+
+        .tabla-contratos {
+            inline-size: 100%;
+            border-collapse: collapse;
+            margin-block-start: 20px;
+        }
+
+        .tabla-contratos th,
+        .tabla-contratos td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: start;
+        }
+
+        .tabla-contratos th {
+            background-color: #f2f2f2;
+        }
+
+        .tabla-contratos tbody tr:nth-child(even) td {
+            background-color: #f9f9f9;
+        }
+    </style>
+</head>
+
+<body>
+    <header class="header">
+        <div class="Logo">
+            <img src="{{ url_for('static', filename='images/LogoEmp.png') }}" alt="Logo de la compañía" width="100px" height="100px">
+        </div>
+        <nav>
+            <ul class="nav-links">
+                <li><a href="{{ url_for('index_emp') }}" class="nav-link">Inicio</a></li>
+                <li><a href="{{ url_for('rh_rmp') }}" class="nav-link">Proyectos</a></li>
+                <li><a href="{{ url_for('contacto_emp') }}" class="nav-link">Contacto</a></li>
+            </ul>
+        </nav>
+        {% if 'user_name' in session %}
+        <div class="dropdown">
+            <span class="nav-link">Bienvenido, {{ session['user_name'] }}</span>
+            <div class="dropdown-content">
+                <a href="{{ url_for('perfilE') }}">Perfil</a>
+                <a href="{{ url_for('cerrar_sesion') }}" class="">Cerrar Sesión</a>
+            </div>
+        </div>
+        {% else %}
+        <a href="{{ url_for('iniciosesion') }}" class="btn"><button>Iniciar Sesión</button></a>
+        {% endif %}
+    </header>
+
+    <main>
+        <section class="container-contratos">
+            <h2>Mis Contratos de Empleado</h2>
+            <table class="tabla-contratos">
+                <thead>
+                    <tr>
+                        <th>ID Contrato</th>
+                        <th>Banco</th>
+                        <th>Fecha Inicio</th>
+                        <th>Fecha Fin</th>
+                        <th>Salario</th>
+                        <th>Tipo de Contrato</th>
+                        <th>Tipo de Cuenta</th>
+                        <th>Administrador</th>
+                        <th>Empleado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if contratos %}
+                    {% for contrato in contratos %}
+                    <tr>
+                        <td>{{ contrato.idContratoE }}</td>
+                        <td>{{ contrato.banco }}</td>
+                        <td>{{ contrato.fechaI }}</td>
+                        <td>{{ contrato.fechaF }}</td>
+                        <td>{{ contrato.salario }}</td>
+                        <td>{{ contrato.tipoContrato }}</td>
+                        <td>{{ contrato.tipoCuenta }}</td>
+                        <td>{{ contrato.nombre_admin }}</td>
+                        <td>{{ contrato.nombre_empleado }}</td>
+                    </tr>
+                    {% endfor %}
+                    {% else %}
+                    <tr>
+                        <td colspan="9">No tienes ningún contrato registrado.</td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </section>
+    </main>
+
+    <footer>
+        <div class="contenedor-footer">
+            <div class="content-foo">
+                <h4>Mapa de sitio</h4>
+                <p><a href="Mapa de sitio.html">Mapa de sitio</a></p>
+            </div>
+            <div class="content-foo">
+                <h4>Email</h4>
+                <p>serviciostopografic1@hotmail.com</p>
+            </div>
+            <div class="content-foo">
+                <h4>Redes</h4>
+                <section class="buttons">
+                    <a href="https://www.facebook.com/profile.php?id=100092641494792" class="fa fa-facebook"></a>
+                    <a href="https://twitter.com/STopografi83139" class="fa fa-twitter"></a>
+                    <a href="https://www.instagram.com/stopograficos/?__coig_restricted=1" class="fa fa-instagram"></a>
+                </section>
+            </div>
+        </div>
+        <h2 class="titulo-final">&copy; Servicios Topograficos | Gaes 7</h2>
+    </footer>
+</body>
+
+</html>

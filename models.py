@@ -4,7 +4,7 @@ database = mysql.connector.connect(
     host='localhost',
     user='root',
     password='',
-    database='bdflask'
+    database='Diego10'
 )
 
 cursor = database.cursor()
@@ -77,7 +77,7 @@ def get_cliente_info(user_id):
     if cursor:
         try:
             cursor.execute("""
-                SELECT nombreCliente, apeCliente, telefono  
+                SELECT nombreCliente, apeCliente, telefono
                 FROM clientes
                 WHERE idUsuario = %s
             """, (user_id,))
@@ -156,7 +156,7 @@ def insert_solicitud(desc_solicitud, id_usuario, id_proyecto):
         cursor = get_cursor()
         if cursor:
             cursor.execute("""
-                INSERT INTO solicitudesP (desc_solicitud, idCliente, idProyecto)
+                INSERT INTO solicitudesp (desc_solicitud, idCliente, idProyecto)
                 VALUES (%s, %s, %s)
             """, (desc_solicitud, id_cliente, id_proyecto))
             database.commit()
@@ -173,7 +173,7 @@ def get_solicitudes_del_cliente(id_cliente):
         if cursor:
             cursor.execute("""
                 SELECT s.idSolicitud, s.desc_solicitud, p.nomProyecto, s.Estado
-                FROM solicitudesP s
+                FROM solicitudesp s
                 JOIN proyectos p ON s.idProyecto = p.idProyecto
                 WHERE s.idCliente = %s
             """, (id_cliente,))
@@ -194,7 +194,7 @@ def insert_solicitud_empleado(tipoSolicitud, motivo, fechaSolicitud, id_usuario)
         cursor = get_cursor()
         if cursor:
             cursor.execute("""
-                INSERT INTO solicitudesE (tipoSolicitud, motivo, fechaSolicitud, idEmpleado)
+                INSERT INTO solicitudese (tipoSolicitud, motivo, fechaSolicitud, idEmpleado)
                 VALUES (%s, %s, %s, %s)
             """, (tipoSolicitud, motivo, fechaSolicitud, id_empleado))
             database.commit()
@@ -211,7 +211,7 @@ def get_solicitudes_del_empleado(id_empleado):
         if cursor:
             cursor.execute("""
                 SELECT se.idSolicitud, se.tipoSolicitud, se.motivo, se.fechaSolicitud, se.estado, se.fechaRespuesta, se.respuesta
-                FROM solicitudesE se
+                FROM solicitudese se
                 WHERE se.idEmpleado = %s
             """, (id_empleado,))
             result = cursor.fetchall()
@@ -227,11 +227,11 @@ def get_contratos_cliente(user_id):
     if cursor:
         try:
             cursor.execute("""
-                SELECT 
+                SELECT
                     cp.idContratoP, cp.fechaI, cp.fechaF, cp.precio,
-                    a.nomAdmin AS nombre_admin, 
-                    cl.nombreCliente AS nom_cliente, 
-                    cd.nomCiudad AS nom_ciudad, 
+                    a.nomAdmin AS nombre_admin,
+                    cl.nombreCliente AS nom_cliente,
+                    cd.nomCiudad AS nom_ciudad,
                     e.nomEmpleado AS nombre_empleado,
                     pr.nomProyecto AS nom_proyecto
                 FROM contproyecto cp
@@ -249,3 +249,24 @@ def get_contratos_cliente(user_id):
         except mysql.connector.Error as err:
             print(f"Error al obtener información de los contratos: {err}")
     return []
+
+
+def get_contratos_empleados(user_id):
+    cursor = get_cursor()
+    if cursor:
+        try:
+            cursor.execute("""
+                SELECT ce.idContratoE, ce.banco, ce.fechaI, ce.fechaF, ce.salario, ce.tipoContrato, ce.tipoCuenta, a.nomAdmin AS nombre_admin, e.nomEmpleado AS nombre_empleado
+                FROM contempleado ce
+                JOIN admin a ON ce.idAdmin = a.idAdmin
+                JOIN empleados e ON ce.idEmpleado = e.idEmpleado
+                WHERE ce.idEmpleado = %s
+            """, (user_id,))
+            contratos = cursor.fetchall()
+            cursor.close()
+            return contratos
+        except mysql.connector.Error as err:
+            print(f"Error al obtener información de los contratos: {err}")
+    return []
+
+
